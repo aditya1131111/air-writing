@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Air Writing</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0f;
+    color: #e8e6de;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 860px;
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #888780;
+  }
+
+  #stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    max-height: 65vh;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 0.5px solid #2c2c2a;
+    background: #111;
+  }
+
+  #webcam, #overlay, #drawing-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+  }
+
+  #webcam      { object-fit: cover; transform: scaleX(-1); }
+  #overlay     { pointer-events: none; }
+  #drawing-canvas { pointer-events: none; mix-blend-mode: screen; }
+
+  #mode-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  #start-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(13,13,15,0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    border-radius: 14px;
+    z-index: 10;
+  }
+
+  #start-overlay p {
+    font-size: 14px;
+    color: #888780;
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.6;
+  }
+
+  #start-btn {
+    padding: 10px 28px;
+    border-radius: 8px;
+    border: 0.5px solid #3d3d3a;
+    background: transparent;
+    color: #e8e6de;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  #start-btn:hover { background: #1c1c1e; }
+
+  #controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ctrl-btn {
+    padding: 7px 18px;
+    border-radius: 8px;
+    border: 0.5px solid #3d3d3a;
+    background: transparent;
+    color: #e8e6de;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .ctrl-btn:hover { background: #1c1c1e; }
+
+  .color-dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .color-dot.active { border-color: #fff; transform: scale(1.2); }
+
+  #size-slider {
+    width: 90px;
+    accent-color: #5DCAA5;
+  }
+
+  #hint-bar {
+    display: flex;
+    gap: 20px;
+    font-size: 11px;
+    color: #5F5E5A;
+    letter-spacing: 0.03em;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  #hint-bar span { display: flex; align-items: center; gap: 5px; }
+
+  .dot-icon {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  #save-flash {
+    position: absolute;
+    bottom: 12px;
+    right: 14px;
+    background: #1D9E75;
+    color: #E1F5EE;
+    font-size: 12px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <h1>Air Writing</h1>
+
+  <div id="stage">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="drawing-canvas"></canvas>
+    <canvas id="overlay"></canvas>
+
+    <div id="mode-badge" style="background:#1c1c1e;color:#888780">— idle —</div>
+    <div id="save-flash">Saved!</div>
+
+    <div id="start-overlay">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="12" fill="#1c1c1e"/>
+        <path d="M20 14c0-2.2 1.8-4 4-4s4 1.8 4 4v14c0 2.2-1.8 4-4 4s-4-1.8-4-4V14z" fill="#5DCAA5"/>
+        <path d="M14 26c0 5.5 4.5 10 10 10s10-4.5 10-10" stroke="#5DCAA5" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <line x1="24" y1="36" x2="24" y2="40" stroke="#5DCAA5" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <p>Allow webcam access to start drawing in the air with your index finger.</p>
+      <button id="start-btn" onclick="startCamera()">Enable camera</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="color-dot active" style="background:#5DCAA5" data-color="#5DCAA5" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#7F77DD" data-color="#7F77DD" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#EF9F27" data-color="#EF9F27" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#D85A30" data-color="#D85A30" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#E24B4A" data-color="#E24B4A" onclick="setColor(this)"></div>
+    <div class="color-dot" style="background:#ffffff" data-color="#ffffff" onclick="setColor(this)"></div>
+
+    <input type="range" id="size-slider" min="2" max="24" value="6" title="Brush size">
+
+    <button class="ctrl-btn" onclick="clearCanvas()">Clear</button>
+    <button class="ctrl-btn" onclick="saveCanvas()">Save</button>
+  </div>
+
+  <div id="hint-bar">
+    <span><span class="dot-icon" style="background:#5DCAA5"></span>Index up, middle down = draw</span>
+    <span><span class="dot-icon" style="background:#EF9F27"></span>Both fingers up = hover</span>
+    <span><span class="dot-icon" style="background:#E24B4A"></span>Open palm = clear</span>
+  </div>
+</div>
+
+<script type="module">
+import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const video    = document.getElementById('webcam');
+const drawCvs  = document.getElementById('drawing-canvas');
+const ovrCvs   = document.getElementById('overlay');
+const badge    = document.getElementById('mode-badge');
+const startOvl = document.getElementById('start-overlay');
+const flash    = document.getElementById('save-flash');
+const dCtx     = drawCvs.getContext('2d');
+const oCtx     = ovrCvs.getContext('2d');
+
+let handLandmarker = null;
+let lastVideoTime  = -1;
+let prevX = null, prevY = null;
+let drawColor  = '#5DCAA5';
+let brushSize  = 6;
+let running    = false;
+let lastMode   = '';
+
+const PALM_THRESHOLD = 4;
+
+async function initMP() {
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  handLandmarker = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numHands: 1,
+    minHandDetectionConfidence: 0.7,
+    minHandPresenceConfidence: 0.7,
+    minTrackingConfidence: 0.7,
+  });
+}
+
+window.startCamera = async function() {
+  startOvl.innerHTML = '<p style="color:#888780;font-size:13px">Loading MediaPipe…</p>';
+  await initMP();
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user', width:1280, height:960 }, audio:false });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      resizeCanvases();
+      startOvl.style.display = 'none';
+      running = true;
+      requestAnimationFrame(loop);
+    };
+  } catch(e) {
+    startOvl.innerHTML = `<p style="color:#E24B4A;font-size:13px">Camera access denied.<br>Please allow camera permissions and reload.</p>`;
+  }
+};
+
+function resizeCanvases() {
+  const w = video.videoWidth, h = video.videoHeight;
+  [drawCvs, ovrCvs].forEach(c => { c.width = w; c.height = h; });
+}
+
+function getFingersUp(lm) {
+  const up = [];
+  up.push(lm[4].x < lm[3].x);
+  for(let i=1;i<5;i++) up.push(lm[TIPS[i]].y < lm[PIPS[i]].y);
+  return up;
+}
+const TIPS=[4,8,12,16,20], PIPS=[3,6,10,14,18];
+
+function loop() {
+  if (!running) return;
+  const now = performance.now();
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    const res = handLandmarker.detectForVideo(video, now);
+    processResults(res);
+  }
+  requestAnimationFrame(loop);
+}
+
+function processResults(res) {
+  const W = drawCvs.width, H = drawCvs.height;
+  oCtx.clearRect(0, 0, W, H);
+
+  if (!res.landmarks || res.landmarks.length === 0) {
+    prevX = prevY = null;
+    setMode('idle');
+    return;
+  }
+
+  const lm   = res.landmarks[0];
+  const up   = getFingersUp(lm);
+  const total = up.reduce((a,b)=>a+b,0);
+
+  const rawX  = lm[8].x;
+  const mirX  = 1 - rawX;
+  const tipX  = Math.round(mirX * W);
+  const tipY  = Math.round(lm[8].y * H);
+
+  if (total >= PALM_THRESHOLD) {
+    setMode('erase');
+    clearCanvas();
+    prevX = prevY = null;
+    drawPalmFlash(W, H);
+    return;
+  }
+
+  const indexUp  = up[1];
+  const middleUp = up[2];
+
+  if (indexUp && !middleUp) {
+    setMode('draw');
+    if (prevX !== null) {
+      dCtx.beginPath();
+      dCtx.moveTo(prevX, prevY);
+      dCtx.lineTo(tipX, tipY);
+      dCtx.strokeStyle = drawColor;
+      dCtx.lineWidth   = brushSize;
+      dCtx.lineCap     = 'round';
+      dCtx.lineJoin    = 'round';
+      dCtx.stroke();
+    }
+    prevX = tipX; prevY = tipY;
+    drawCursor(tipX, tipY, drawColor, true);
+  } else if (indexUp && middleUp) {
+    setMode('hover');
+    prevX = prevY = null;
+    drawCursor(tipX, tipY, '#EF9F27', false);
+  } else {
+    setMode('idle');
+    prevX = prevY = null;
+  }
+}
+
+function drawCursor(x, y, color, filled) {
+  oCtx.beginPath();
+  oCtx.arc(x, y, 10, 0, Math.PI * 2);
+  if (filled) {
+    oCtx.fillStyle = color + '55';
+    oCtx.fill();
+  }
+  oCtx.strokeStyle = color;
+  oCtx.lineWidth = 2;
+  oCtx.stroke();
+
+  oCtx.beginPath();
+  oCtx.arc(x, y, 2.5, 0, Math.PI * 2);
+  oCtx.fillStyle = color;
+  oCtx.fill();
+}
+
+function drawPalmFlash(W, H) {
+  oCtx.fillStyle = 'rgba(226,75,74,0.18)';
+  oCtx.fillRect(0, 0, W, H);
+}
+
+const modeConfig = {
+  draw:  { label: 'Drawing',    bg: '#0F2E1F', color: '#5DCAA5' },
+  hover: { label: 'Hover',      bg: '#2E2612', color: '#EF9F27' },
+  erase: { label: 'Clearing…',  bg: '#2E1212', color: '#E24B4A' },
+  idle:  { label: '— idle —',   bg: '#1c1c1e', color: '#888780' },
+};
+
+function setMode(mode) {
+  if (mode === lastMode) return;
+  lastMode = mode;
+  const c = modeConfig[mode];
+  badge.textContent        = c.label;
+  badge.style.background   = c.bg;
+  badge.style.color        = c.color;
+}
+
+window.clearCanvas = function() {
+  dCtx.clearRect(0, 0, drawCvs.width, drawCvs.height);
+  prevX = prevY = null;
+};
+
+window.saveCanvas = function() {
+  const merged = document.createElement('canvas');
+  merged.width = drawCvs.width; merged.height = drawCvs.height;
+  const mCtx = merged.getContext('2d');
+  mCtx.fillStyle = '#0d0d0f';
+  mCtx.fillRect(0,0,merged.width,merged.height);
+  mCtx.drawImage(drawCvs, 0, 0);
+  const link = document.createElement('a');
+  link.download = 'air-writing.png';
+  link.href = merged.toDataURL('image/png');
+  link.click();
+  flash.style.opacity = '1';
+  setTimeout(() => flash.style.opacity = '0', 1800);
+};
+
+window.setColor = function(el) {
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+  el.classList.add('active');
+  drawColor = el.dataset.color;
+};
+
+document.getElementById('size-slider').oninput = function() {
+  brushSize = parseInt(this.value);
+};
+
+window.addEventListener('resize', () => {
+  if (video.videoWidth) resizeCanvases();
+});
+</script>
+</body>
+</html>
